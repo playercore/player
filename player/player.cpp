@@ -6,6 +6,9 @@
 #include <memory.h>
 #include <tchar.h>
 
+#include <InitGuid.h>
+#include <uuids.h>
+
 #include "player.h"
 #include "player_interface.h"
 
@@ -19,6 +22,17 @@ HMENU menu = NULL;
 TPlayerState state = psReady;
 HMODULE dll = NULL;
 ICorePlayer* player = NULL;
+IPlayerConfig* playerConfig = NULL;
+
+
+#define AUDIOMENUIDBASE 0x1000
+int outputCount = 0;
+int audioRender = AUDIOMENUIDBASE;
+int videoRender = ID_VMR7WINDOWNED;
+// {203C3DAB-212B-42d4-8DE5-23EC204C1251}
+DEFINE_GUID(IID_IPlayerConfig, 
+            0x203c3dab, 0x212b, 0x42d4, 0x8d, 0xe5, 0x23, 0xec, 0x20, 0x4c,
+            0x12, 0x51);
 
 // 此代码模块中包含的函数的前向声明:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -43,7 +57,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
 	LoadString(hInstance, IDC_PLAYER, szWindowClass, MAX_LOADSTRING);
 
 	MyRegisterClass(hInstance);
-// 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED); // 由于播放器程用到COM，所以这里一定要初始化
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED); // 由于播放器程用到COM，所以这里一定要初始化
 	// 执行应用程序初始化:
 	if (!InitInstance (hInstance, nCmdShow))
 	{
@@ -68,15 +82,19 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
 		player->Release();
 		player = NULL;
 	}
-	if (dll)
+
+	if (playerConfig)
+	{
+		playerConfig->Release();
+		player = NULL;
+	}
+    if (dll)
 	{
 		FreeLibrary(dll);
 	}
-// 	CoUninitialize();
+ 	CoUninitialize();
 	return (int) msg.wParam;
 }
-
-
 
 //
 //  函数: MyRegisterClass()
@@ -165,6 +183,37 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         return FALSE;
     }
 
+    player->QueryInterface(IID_IPlayerConfig, (void**)&playerConfig);
+    if (!playerConfig)
+        return FALSE;
+
+    HMENU m = GetSubMenu(menu, 0);
+    HMENU outMenu = GetSubMenu(m, 3);
+    if (!outMenu)
+        return FALSE;
+    DeleteMenu(outMenu, 0, MF_BYPOSITION); 
+
+    MENUITEMINFO info;
+    ZeroMemory(&info, sizeof(info));
+    info.cbSize = sizeof(info);
+    info.fMask = MIIM_STRING | MIIM_ID | MIIM_CHECKMARKS | MIIM_FTYPE | MIIM_STATE;
+    info.fType = MFT_RADIOCHECK;
+    
+    outputCount = 0;
+    wchar_t name[255] = {0};
+    while(playerConfig->GetOutputTypeNameList(outputCount, name, 255) != -1)
+    {
+        info.wID = AUDIOMENUIDBASE + outputCount;
+        info.dwTypeData = name;
+        if (!outputCount)
+            info.fState = MFS_CHECKED;
+        else
+            info.fState = 0;
+
+//         info.cch = wcslen(name);
+        InsertMenuItem(outMenu, outputCount, TRUE, &info);
+        ++outputCount;
+    }
 	return TRUE;
 }
 
@@ -189,6 +238,64 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_COMMAND:
 		wmId    = LOWORD(wParam);
 		wmEvent = HIWORD(wParam);
+
+        // 选择音频渲染器
+        if (wmId >= AUDIOMENUIDBASE && wmId < AUDIOMENUIDBASE + outputCount)
+        {
+            HMENU m = GetSubMenu(menu, 0);
+            HMENU outMenu = GetSubMenu(m, 3);
+            playerConfig->SetOutputDevice(wmId - AUDIOMENUIDBASE, 0);
+            ::CheckMenuItem(outMenu, audioRender, MF_UNCHECKED);
+            ::CheckMenuItem(outMenu, wmId, MF_CHECKED);
+            audioRender = wmId;
+            return 0;
+        }
+        
+        // 选择视频渲染器
+        if (wmId == ID_OLDRENDER || wmId == ID_VMR7WINDOWNED || 
+            wmId == ID_VMR7WINDOWNLESS || wmId == ID_VMR7RENDERLESS || 
+            wmId == ID_VMR9WINDOWNED || wmId == ID_VMR9WINDOWNLESS ||
+            wmId == ID_VMR9RENDERLESS)
+        {
+            HMENU m = GetSubMenu(menu, 0);
+            HMENU outMenu = GetSubMenu(m, 4);
+            ::CheckMenuItem(outMenu, videoRender, MF_UNCHECKED);
+            ::CheckMenuItem(outMenu, wmId, MF_CHECKED);   
+            videoRender = wmId;
+		    switch (wmId)
+            {
+            case ID_OLDRENDER:
+                playerConfig->SetDefaultVedioRenderer((GUID)CLSID_VideoRendererDefault,
+                    RENDER_MODE_WINDOWED);
+                break;
+            case ID_VMR7WINDOWNED:
+                playerConfig->SetDefaultVedioRenderer((GUID)CLSID_VideoMixingRenderer,
+                    RENDER_MODE_WINDOWED);
+                break;
+            case ID_VMR7WINDOWNLESS:
+                playerConfig->SetDefaultVedioRenderer((GUID)CLSID_VideoMixingRenderer,
+                    RENDER_MODE_WINDOWLESS);
+                break;
+            case ID_VMR7RENDERLESS:
+                playerConfig->SetDefaultVedioRenderer((GUID)CLSID_VideoMixingRenderer,
+                    RENDER_MODE_RENDERLESS);
+                break;
+            case ID_VMR9WINDOWNED:
+                playerConfig->SetDefaultVedioRenderer((GUID)CLSID_VideoMixingRenderer9,
+                    RENDER_MODE_WINDOWED);
+                break;
+            case ID_VMR9WINDOWNLESS:
+                playerConfig->SetDefaultVedioRenderer((GUID)CLSID_VideoMixingRenderer9,
+                    RENDER_MODE_WINDOWLESS);
+                break;
+            case ID_VMR9RENDERLESS:
+                playerConfig->SetDefaultVedioRenderer((GUID)CLSID_VideoMixingRenderer9,
+                    RENDER_MODE_RENDERLESS);
+                break;
+            }
+            return 0;
+        }
+
 		// 分析菜单选择:
 		switch (wmId)
 		{

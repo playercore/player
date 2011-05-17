@@ -47,11 +47,21 @@ BEGIN
         MENUITEM "播放(&O)",                      IDM_PLAY
         MENUITEM "暂停(&P)",                      IDM_PAUSE
         MENUITEM "停止(&S)",                      IDM_STOP
+        POPUP "音频渲染器(&A)"
+        BEGIN
+            MENUITEM "渲染器",                         ID_32782
+        END
+        POPUP "视频渲染器"
+        BEGIN
+            MENUITEM "旧的视频渲染器",                     ID_OLDRENDER
+            MENUITEM "VMR7 窗口化",                    ID_VMR7WINDOWNED, CHECKED
+            MENUITEM "VMR7 无窗口",                    ID_VMR7WINDOWNLESS
+            MENUITEM "VMR7 未渲染",                    ID_VMR7RENDERLESS
+            MENUITEM "VMR9 窗口化",                    ID_VMR9WINDOWNED
+            MENUITEM "VMR9 无窗口",                    ID_VMR9WINDOWNLESS
+            MENUITEM "VMR9 未渲染",                    ID_VMR9RENDERLESS
+        END
         MENUITEM "退出(&X)",                      IDM_EXIT
-    END
-    POPUP "帮助(&H)"
-    BEGIN
-        MENUITEM "关于(&A) ...",                  IDM_ABOUT
     END
 END
 

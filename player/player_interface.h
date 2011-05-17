@@ -45,6 +45,13 @@ enum KAudioTrackType
     MIXED
 };
 
+enum KRenderMode
+{    
+    RENDER_MODE_WINDOWED    = 0,
+    RENDER_MODE_WINDOWLESS  = 1,
+    RENDER_MODE_RENDERLESS  = 2
+};
+
 typedef enum _LineTpye {  MIX = 0, MICPHONE , WAVEIN } LineType;
 typedef enum _TPlayerState  
 {
