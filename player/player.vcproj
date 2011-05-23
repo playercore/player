@@ -63,6 +63,7 @@
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="2"
+				EntryPointSymbol=""
 				TargetMachine="1"
 			/>
 			<Tool
@@ -114,8 +115,10 @@
 				Name="VCCLCompilerTool"
 				Optimization="1"
 				EnableIntrinsicFunctions="false"
+				FavorSizeOrSpeed="2"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="0"
+				BufferSecurityCheck="true"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -133,11 +136,14 @@
 			<Tool
 				Name="VCLinkerTool"
 				LinkIncremental="1"
-				GenerateManifest="false"
+				GenerateManifest="true"
+				EnableUAC="true"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
+				EntryPointSymbol=""
+				RandomizedBaseAddress="2"
 				TargetMachine="1"
 			/>
 			<Tool

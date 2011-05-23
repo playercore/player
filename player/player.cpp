@@ -6,6 +6,8 @@
 #include <memory.h>
 #include <tchar.h>
 
+#include <string>
+
 #include <InitGuid.h>
 #include <uuids.h>
 
@@ -36,7 +38,7 @@ DEFINE_GUID(IID_IPlayerConfig,
 
 // 此代码模块中包含的函数的前向声明:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
-BOOL				InitInstance(HINSTANCE, int);
+HWND				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 
@@ -59,13 +61,20 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
 	MyRegisterClass(hInstance);
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED); // 由于播放器程用到COM，所以这里一定要初始化
 	// 执行应用程序初始化:
-	if (!InitInstance (hInstance, nCmdShow))
-	{
+    HWND hWnd = InitInstance (hInstance, nCmdShow);
+	if (!hWnd)
 		return FALSE;
-	}
 
 	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_PLAYER));
 
+
+    if (__argc > 1)
+    {
+        player->OpenFile(__wargv[1],NULL);
+        player->Play();
+        SetWindowText(hWnd, __wargv[1]);
+    }
+    SetProcessWorkingSetSize( GetCurrentProcess(), 0xFFFFFFFF, 0xFFFFFFFF );
 	// 主消息循环:
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
@@ -140,19 +149,15 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //        在此函数中，我们在全局变量中保存实例句柄并
 //        创建和显示主程序窗口。
 //
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
+HWND InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   HWND hWnd;
-
    hInst = hInstance; // 将实例句柄存储在全局变量中
 
-   hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
+   HWND hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
 
    if (!hWnd)
-   {
-      return FALSE;
-   }
+      return NULL;
 
    DragAcceptFiles(hWnd, TRUE);
    menu = LoadMenu(hInst, MAKEINTRESOURCE(IDC_PLAYER));
@@ -160,12 +165,19 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
-   	dll = LoadLibrary(_T("KGPlayer.dll"));
-	if (!dll || INVALID_HANDLE_VALUE == dll)
-	{
-		MessageBox(NULL, _T("加载KGPlayer.dll失败！"), _T("出错啦！"), MB_OK);
-		return FALSE;
-	}
+   TCHAR path[256];
+   ::GetModuleFileName(hInstance, path, 256);
+   std::wstring wpath = path;
+   int i = wpath.rfind('\\');
+   wpath = wpath.substr( 0 ,i);
+   wpath += _T("\\KGPlayer.dll");
+   dll = LoadLibrary(wpath.c_str());
+   if (!dll || INVALID_HANDLE_VALUE == dll)
+   {
+       std::wstring msg = _T("加载\"") + wpath + _T("\"失败！");
+       MessageBox(NULL, msg.c_str(), _T("出错啦！"), MB_OK);
+       return NULL;
+   }
 
 	typedef HRESULT (_stdcall *CreatePlayerFun)(ICorePlayer** player,HWND recv);
 	CreatePlayerFun CreatePlayer = (CreatePlayerFun)GetProcAddress(dll ,
@@ -173,24 +185,25 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     if (!CreatePlayer)
     {
 		MessageBox(NULL, _T("创建播放器失败！"), _T("出错啦！"), MB_OK);
-        return FALSE;
+        return NULL;
     }
 	
     CreatePlayer(&player,hWnd);
     if (!player)
     {
 		MessageBox(NULL, _T("创建播放器失败！"), _T("出错啦！"), MB_OK);
-        return FALSE;
+        return NULL;
     }
 
     player->QueryInterface(IID_IPlayerConfig, (void**)&playerConfig);
     if (!playerConfig)
-        return FALSE;
+        return NULL;
 
     HMENU m = GetSubMenu(menu, 0);
     HMENU outMenu = GetSubMenu(m, 3);
     if (!outMenu)
-        return FALSE;
+        return NULL;
+
     DeleteMenu(outMenu, 0, MF_BYPOSITION); 
 
     MENUITEMINFO info;
@@ -214,7 +227,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         InsertMenuItem(outMenu, outputCount, TRUE, &info);
         ++outputCount;
     }
-	return TRUE;
+	return hWnd;
 }
 
 //
@@ -377,7 +390,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_KGPLAYER_PLAYER_STATE:
 		state = (TPlayerState)wParam;
-		break;
+        SetProcessWorkingSetSize( GetCurrentProcess(), 0xFFFFFFFF, 0xFFFFFFFF );
+        break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
