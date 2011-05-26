@@ -10,11 +10,13 @@
 
 #include <InitGuid.h>
 #include <uuids.h>
+#include <Shobjidl.h>  
 
 #include "player.h"
 #include "player_interface.h"
-
+#include <CommCtrl.h>
 #define MAX_LOADSTRING 100
+#define STATEOPEN WM_USER + 0x100
 
 // 全局变量:
 HINSTANCE hInst;								// 当前实例
@@ -25,12 +27,16 @@ TPlayerState state = psReady;
 HMODULE dll = NULL;
 ICorePlayer* player = NULL;
 IPlayerConfig* playerConfig = NULL;
-
+HWND control = NULL;
+TAudioInfo info = {0};
+ITaskbarList3* itl = NULL;  
 
 #define AUDIOMENUIDBASE 0x1000
 int outputCount = 0;
 int audioRender = AUDIOMENUIDBASE;
 int videoRender = ID_VMR7WINDOWNED;
+BOOL slidKeyDown = FALSE;
+
 // {203C3DAB-212B-42d4-8DE5-23EC204C1251}
 DEFINE_GUID(IID_IPlayerConfig, 
             0x203c3dab, 0x212b, 0x42d4, 0x8d, 0xe5, 0x23, 0xec, 0x20, 0x4c,
@@ -40,7 +46,7 @@ DEFINE_GUID(IID_IPlayerConfig,
 ATOM				MyRegisterClass(HINSTANCE hInstance);
 HWND				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK Control(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 int WINAPI _tWinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
@@ -67,13 +73,34 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
 
 	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_PLAYER));
 
-
+    control = CreateDialogParam(hInstance, MAKEINTRESOURCE(IDD_CONTROL), hWnd, Control, 0);
+    SendMessage(GetDlgItem(control, IDC_SLIDER1), TBM_SETRANGE, TRUE,
+                MAKELPARAM(0, 1000));  
+    RECT workArea; 
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0); 
+    RECT rect;
+    GetWindowRect(control, &rect);
+    SetWindowPos(control, NULL, (workArea.right - workArea.left - (rect.right - rect.left)) / 2,
+                 workArea.bottom - workArea.top - (rect.bottom - rect.top), 0, 0, 
+                 SWP_NOSIZE | SWP_SHOWWINDOW);
     if (__argc > 1)
     {
         player->OpenFile(__wargv[1],NULL);
         player->Play();
         SetWindowText(hWnd, __wargv[1]);
     }
+
+    HRESULT hr = CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&itl));  
+    if (SUCCEEDED(hr))
+    {  
+        hr = itl->HrInit();  
+        if (FAILED(hr))
+        {  
+            itl->Release();  
+            itl = NULL;  
+        }  
+    }
+
     SetProcessWorkingSetSize( GetCurrentProcess(), 0xFFFFFFFF, 0xFFFFFFFF );
 	// 主消息循环:
 	while (GetMessage(&msg, NULL, 0, 0))
@@ -91,12 +118,17 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
 		player->Release();
 		player = NULL;
 	}
-
+    DestroyWindow(control);
 	if (playerConfig)
 	{
 		playerConfig->Release();
 		player = NULL;
 	}
+    if (itl)
+    {  
+        itl->Release();  
+        itl = NULL;  
+    }  
     if (dll)
 	{
 		FreeLibrary(dll);
@@ -230,6 +262,40 @@ HWND InitInstance(HINSTANCE hInstance, int nCmdShow)
 	return hWnd;
 }
 
+INT_PTR CALLBACK Control(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+	case WM_INITDIALOG:
+		return (INT_PTR)TRUE;
+
+	case WM_COMMAND:
+        PostMessage(GetParent(hDlg), message, wParam, lParam);
+        return TRUE;
+    case WM_CLOSE:
+        ShowWindow(hDlg, SW_HIDE);
+        return TRUE;
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+        ::PostMessage(hDlg, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        return 0;
+    case WM_HSCROLL:
+        slidKeyDown = TRUE;
+        return FALSE;
+    case WM_NOTIFY:
+        if (NM_RELEASEDCAPTURE == ((LPNMHDR)lParam)->code)
+        {
+            int pos = SendMessage(GetDlgItem(control, IDC_SLIDER1), TBM_GETPOS, 0, 0L);
+            player->SetPosition(info.Duration / 1000 * pos);
+            slidKeyDown = FALSE;
+        }
+
+        return FALSE;
+	}
+	return (INT_PTR)FALSE;
+}
+
 //
 //  函数: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -312,8 +378,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// 分析菜单选择:
 		switch (wmId)
 		{
-		case IDM_ABOUT:
-			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+		case IDM_CONTROL:
+			ShowWindow(control, SW_SHOWNORMAL);
 			break;
 		case IDM_PLAY:
 			player->Play();
@@ -337,8 +403,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// TODO: 在此添加任意绘图代码...
 		EndPaint(hWnd, &ps);
 		break;
-
-	case WM_DROPFILES:
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+        ::PostMessage(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        return 0;
+    case WM_DROPFILES:
 		{
 			int count = DragQueryFile((HDROP)wParam, -1, NULL, 0);//取得被拖动文件的数目
 			if (count > 0)
@@ -391,29 +460,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_KGPLAYER_PLAYER_STATE:
 		state = (TPlayerState)wParam;
         SetProcessWorkingSetSize( GetCurrentProcess(), 0xFFFFFFFF, 0xFFFFFFFF );
+        if (psOpen == state)
+            player->GetAudioInfo(&info);
         break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
+#if 1
+	case WM_KGPLAYER_PLAYING_PROGRESS:
+        if (!slidKeyDown)
+        {
+            __int64 time = 0;
+            int* p = (int*)&time;
+            *p = wParam;
+            p++;
+            *p = lParam;
+
+            int pos = (int)((double)time / info.Duration * 1000.0);
+            SendMessage(GetDlgItem(control, IDC_SLIDER1), TBM_SETPOS, TRUE, pos);
+            if (itl)
+                itl->SetProgressValue(hWnd, pos, 1000);  
+        }
+        break;
+#endif
+
+    default:
+        return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 	return 0;
-}
-
-// “关于”框的消息处理程序。
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	UNREFERENCED_PARAMETER(lParam);
-	switch (message)
-	{
-	case WM_INITDIALOG:
-		return (INT_PTR)TRUE;
-
-	case WM_COMMAND:
-		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-		{
-			EndDialog(hDlg, LOWORD(wParam));
-			return (INT_PTR)TRUE;
-		}
-		break;
-	}
-	return (INT_PTR)FALSE;
 }

@@ -7,6 +7,8 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
+#ifndef APSTUDIO_INVOKED
+#endif
 #define APSTUDIO_HIDDEN_SYMBOLS
 #include "windows.h"
 #undef APSTUDIO_HIDDEN_SYMBOLS
@@ -59,6 +61,7 @@ BEGIN
             MENUITEM "VMR9 无窗口",                    ID_VMR9WINDOWNLESS
             MENUITEM "VMR9 未渲染",                    ID_VMR9RENDERLESS
         END
+        MENUITEM "控制台(&C)",                     IDM_CONTROL
         MENUITEM "退出(&X)",                      IDM_EXIT
     END
 END
@@ -81,15 +84,16 @@ END
 // Dialog
 //
 
-IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
+IDD_CONTROL DIALOGEX 0, 0, 230, 74
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "关于 player"
+EXSTYLE WS_EX_TOOLWINDOW
+CAPTION "控制面板"
 FONT 9, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    ICON            128,IDC_STATIC,14,14,21,20
-    LTEXT           "player，1.0 版",IDC_STATIC,42,14,114,8,SS_NOPREFIX
-    LTEXT           "Copyright (C) 2011",IDC_STATIC,42,26,114,8
-    DEFPUSHBUTTON   "确定",IDOK,113,41,50,14,WS_GROUP
+    CONTROL         "",IDC_SLIDER1,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | TBS_NOTIFYBEFOREMOVE | TBS_TRANSPARENTBKGND | WS_TABSTOP,7,23,216,15
+    PUSHBUTTON      "播放",IDM_PLAY,30,47,43,14
+    PUSHBUTTON      "暂停",IDM_PAUSE,89,47,43,14
+    PUSHBUTTON      "停止",IDM_STOP,148,47,43,14
 END
 
 
@@ -101,12 +105,12 @@ END
 #ifdef APSTUDIO_INVOKED
 GUIDELINES DESIGNINFO 
 BEGIN
-    IDD_ABOUTBOX, DIALOG
+    IDD_CONTROL, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 163
+        RIGHTMARGIN, 223
         TOPMARGIN, 7
-        BOTTOMMARGIN, 55
+        BOTTOMMARGIN, 67
     END
 END
 #endif    // APSTUDIO_INVOKED
