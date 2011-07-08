@@ -29,7 +29,12 @@ ICorePlayer* player = NULL;
 IPlayerConfig* playerConfig = NULL;
 HWND control = NULL;
 TAudioInfo info = {0};
+std::wstring filePath;
+
+
+#if (_MSC_VER >= 1600)
 ITaskbarList3* itl = NULL;  
+#endif
 
 #define AUDIOMENUIDBASE 0x1000
 int outputCount = 0;
@@ -85,11 +90,12 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
                  SWP_NOSIZE | SWP_SHOWWINDOW);
     if (__argc > 1)
     {
-        player->OpenFile(__wargv[1],NULL);
+        filePath = __wargv[1];
+        player->OpenFile(filePath.c_str(),NULL);
         player->Play();
-        SetWindowText(hWnd, __wargv[1]);
+        SetWindowText(hWnd, filePath.c_str());
     }
-
+#if (_MSC_VER >= 1600)
     HRESULT hr = CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&itl));  
     if (SUCCEEDED(hr))
     {  
@@ -100,7 +106,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
             itl = NULL;  
         }  
     }
-
+#endif
     SetProcessWorkingSetSize( GetCurrentProcess(), 0xFFFFFFFF, 0xFFFFFFFF );
 	// 主消息循环:
 	while (GetMessage(&msg, NULL, 0, 0))
@@ -124,11 +130,13 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
 		playerConfig->Release();
 		player = NULL;
 	}
+#if (_MSC_VER >= 1600)
     if (itl)
     {  
         itl->Release();  
         itl = NULL;  
     }  
+#endif
     if (dll)
 	{
 		FreeLibrary(dll);
@@ -281,7 +289,53 @@ INT_PTR CALLBACK Control(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         ::PostMessage(hDlg, WM_NCLBUTTONDOWN, HTCAPTION, 0);
         return 0;
     case WM_HSCROLL:
-        slidKeyDown = TRUE;
+        {
+            int minpos = 0;
+            int maxpos = 1000;
+
+             // Get the current position of scroll box.
+            int curpos = SendMessage(GetDlgItem(control, IDC_SLIDER1), TBM_GETPOS, 0, 0L);
+            POINT point;
+            GetCursorPos(&point); 
+            RECT rt;
+            GetWindowRect(GetDlgItem(control, IDC_SLIDER1), &rt);
+            RECT channelRect;
+            SendMessage(GetDlgItem(control, IDC_SLIDER1), TBM_GETCHANNELRECT, 0, (LPARAM)&channelRect);
+            int left = rt.left + channelRect.left;
+            int right = rt.left + channelRect.right;
+
+            int nPos = (point.x - left) * maxpos / (right - left);	
+            if (nPos < minpos)
+                nPos = minpos;
+            if (nPos > maxpos)
+                nPos = maxpos;
+
+            switch (wParam)
+            {
+            case SB_LEFT:      // Scroll to far left.
+                curpos = minpos;
+                break;
+
+            case SB_RIGHT:      // Scroll to far right.
+                curpos = maxpos;
+                break;
+
+            case SB_ENDSCROLL:   // End scroll.
+            case SB_LINELEFT:      // Scroll left.
+            case SB_LINERIGHT:   // Scroll right.
+                return FALSE;
+
+            case SB_PAGELEFT:    // Scroll one page left.
+            case SB_PAGERIGHT:      // Scroll one page right.
+            case SB_THUMBPOSITION: // Scroll to absolute position. nPos is the position
+            case SB_THUMBTRACK:   // Drag scroll box to specified position. nPos is the
+                curpos = nPos;     // position that the scroll box has been dragged to.
+                break;
+            }
+            slidKeyDown = TRUE;
+            // Set the new position of the thumb (scroll box).
+            SendMessage(GetDlgItem(control, IDC_SLIDER1), TBM_SETPOS, TRUE, curpos);
+        }
         return FALSE;
     case WM_NOTIFY:
         if (NM_RELEASEDCAPTURE == ((LPNMHDR)lParam)->code)
@@ -382,6 +436,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			ShowWindow(control, SW_SHOWNORMAL);
 			break;
 		case IDM_PLAY:
+            if (state == psPlayEnd || )
+            {
+                player->OpenFile(filePath.c_str(), NULL);
+            }
 			player->Play();
 			break;
 		case IDM_STOP:
@@ -475,8 +533,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             int pos = (int)((double)time / info.Duration * 1000.0);
             SendMessage(GetDlgItem(control, IDC_SLIDER1), TBM_SETPOS, TRUE, pos);
+#if (_MSC_VER >= 1600)
             if (itl)
                 itl->SetProgressValue(hWnd, pos, 1000);  
+#endif
         }
         break;
 #endif

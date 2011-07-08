@@ -17,13 +17,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// 中文(中华人民共和国) resources
+// 中文(简体，中国) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
-#ifdef _WIN32
 LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
 #pragma code_page(936)
-#endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -40,7 +38,7 @@ IDI_SMALL               ICON                    "small.ico"
 // Menu
 //
 
-IDC_PLAYER MENU 
+IDC_PLAYER MENU
 BEGIN
     POPUP "文件(&F)"
     BEGIN
@@ -72,7 +70,7 @@ END
 // Accelerator
 //
 
-IDC_PLAYER ACCELERATORS 
+IDC_PLAYER ACCELERATORS
 BEGIN
     "?",            IDM_ABOUT,              ASCII,  ALT
     "/",            IDM_ABOUT,              ASCII,  ALT
@@ -103,7 +101,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO
 BEGIN
     IDD_CONTROL, DIALOG
     BEGIN
@@ -149,16 +147,55 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "CompanyName", "Copyright 酷狗计算机科技有限公司(C) 2011"
+            VALUE "FileDescription", "简单的播放器，用于测试酷狗播放内核。"
+            VALUE "FileVersion", "1.0.0.1"
+            VALUE "InternalName", "Player"
+            VALUE "LegalCopyright", "Copyright 酷狗计算机科技有限公司(C) 2011"
+            VALUE "OriginalFilename", "Player.exe"
+            VALUE "ProductName", "简单的播放器"
+            VALUE "ProductVersion", "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
 // String Table
 //
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     IDS_APP_TITLE           "player"
     IDC_PLAYER              "PLAYER"
 END
 
-#endif    // 中文(中华人民共和国) resources
+#endif    // 中文(简体，中国) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
